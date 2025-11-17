@@ -1,0 +1,45 @@
+[package]
+name = "mdja"
+version = "0.1.0"
+edition = "2021"
+authors = ["0809android"]
+description = "日本語に最適化されたMarkdownパーサー - CommonMark + GFM対応、目次生成、読了時間計算"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/0809android/mdja"
+keywords = ["markdown", "japanese", "parser", "commonmark", "gfm"]
+categories = ["text-processing", "parser-implementations", "internationalization"]
+readme = "README.md"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+comrak = "0.30"
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+regex = "1.10"
+
+# Python bindings (optional)
+pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
+
+# WASM bindings (optional)
+wasm-bindgen = { version = "0.2", optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+
+[features]
+default = []
+python = ["pyo3"]
+wasm = ["wasm-bindgen", "serde-wasm-bindgen"]
+
+[[bin]]
+name = "mdja"
+path = "src/bin/cli.rs"
+required-features = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
