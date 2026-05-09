@@ -1,6 +1,6 @@
 [package]
 name = "mdja"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["0809android"]
 description = "日本語に最適化されたMarkdownパーサー - CommonMark + GFM対応、目次生成、読了時間計算"
