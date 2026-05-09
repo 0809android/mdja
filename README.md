@@ -28,7 +28,7 @@
 
 ```toml
 [dependencies]
-mdja = "0.1.2"
+mdja = "0.1.3"
 ```
 
 ### Pythonから使う
@@ -405,7 +405,7 @@ cargo doc --open
 
 ```toml
 [dependencies]
-mdja = "0.1.2"
+mdja = "0.1.3"
 ```
 
 ### Usage

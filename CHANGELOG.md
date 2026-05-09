@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/0809android/mdja/compare/v0.1.2...v0.1.3) - 2026-05-10
+
+### Other
+
+- Exercise release-plz release PR publishing flow.
+
 ## [0.1.2](https://github.com/0809android/mdja/compare/v0.1.1...v0.1.2) - 2026-05-09
 
 ### Added
