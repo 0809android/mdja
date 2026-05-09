@@ -7,17 +7,21 @@ use std::process;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
+    if args
+        .get(1)
+        .is_some_and(|arg| arg == "-h" || arg == "--help")
+    {
         eprintln!("使い方: mdja <input.md> [output.html]");
         eprintln!("\n例:");
         eprintln!("  mdja input.md              # HTMLを標準出力に表示");
         eprintln!("  mdja input.md output.html  # HTMLをファイルに保存");
         eprintln!("  cat input.md | mdja        # 標準入力から読み込み");
-        process::exit(1);
+        eprintln!("  cat input.md | mdja -      # 標準入力から読み込み");
+        return;
     }
 
     // Markdownを読み込み
-    let markdown = if args[1] == "-" {
+    let markdown = if args.len() < 2 || args[1] == "-" {
         // 標準入力から読み込み
         let mut buffer = String::new();
         io::stdin()

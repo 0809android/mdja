@@ -97,16 +97,21 @@ impl Document {
         options.extension.table = true;
         options.extension.autolink = true;
         options.extension.tasklist = true;
-        options.extension.header_ids = Some(String::new());
         options.extension.footnotes = true;
         options.extension.description_lists = true;
         options.extension.front_matter_delimiter = Some("---".to_string());
 
-        // 見出しにアンカーIDを追加
+        // 見出しIDを書き換えるため、まずcomrakに標準の見出しアンカーを生成させる
+        options.extension.header_ids = Some(String::new());
+
+        // Markdown本文はそのままHTML変換する
         let content_with_anchors = add_heading_anchors(&content, &headings);
 
         // HTML変換
-        let html = markdown_to_html(&content_with_anchors, &options);
+        let html = rewrite_heading_ids(
+            &markdown_to_html(&content_with_anchors, &options),
+            &headings,
+        );
 
         // 目次生成
         let toc = generate_toc(&headings);
@@ -298,10 +303,34 @@ fn generate_anchor_id(text: &str) -> String {
     id.trim_matches('-').to_string()
 }
 
-/// 見出しにアンカーIDを追加（実際にはcomrakが処理するのでそのまま返す）
+/// 見出しにアンカーIDを追加
 fn add_heading_anchors(content: &str, _headings: &[Heading]) -> String {
-    // comrakが自動でheader_idsを処理するため、ここでは何もしない
     content.to_string()
+}
+
+fn rewrite_heading_ids(html: &str, headings: &[Heading]) -> String {
+    let re = Regex::new(
+        r##"(?s)<h([1-6])><a href="#[^"]*" aria-hidden="true" class="anchor" id="[^"]*"></a>(.*?)</h[1-6]>"##,
+    )
+    .unwrap();
+    let mut index = 0;
+
+    re.replace_all(html, |caps: &regex::Captures| {
+        let level = caps.get(1).map_or("", |m| m.as_str());
+        let body = caps.get(2).map_or("", |m| m.as_str());
+        let id = headings
+            .get(index)
+            .map(|heading| heading.id.as_str())
+            .unwrap_or_default();
+        index += 1;
+
+        format!(
+            "<h{level}><a href=\"#{}\" aria-hidden=\"true\" class=\"anchor\" id=\"{}\"></a>{body}</h{level}>",
+            escape_html_attr(id),
+            escape_html_attr(id)
+        )
+    })
+    .to_string()
 }
 
 /// 目次を生成
@@ -330,26 +359,41 @@ fn calculate_reading_time(markdown: &str) -> usize {
     let text = re.replace_all(&text, "");
 
     let mut char_count = 0;
-    let mut word_count = 0;
+    let mut english_text = String::new();
 
     for c in text.chars() {
-        if c.is_whitespace() {
-            continue;
-        }
-
         // 日本語文字は1文字として、英数字は単語としてカウント
         if is_japanese_char(c) {
             char_count += 1;
-        } else if c.is_alphanumeric() {
-            word_count += 1;
+            english_text.push(' ');
+        } else {
+            english_text.push(c);
         }
     }
+
+    let word_count = english_text
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .count();
 
     // 日本語: 400文字/分、英語: 200単語/分
     let japanese_time = char_count / 400;
     let english_time = word_count / 200;
 
     (japanese_time + english_time).max(1)
+}
+
+fn escape_html_attr(input: &str) -> String {
+    input
+        .chars()
+        .map(|c| match c {
+            '&' => "&amp;".to_string(),
+            '"' => "&quot;".to_string(),
+            '<' => "&lt;".to_string(),
+            '>' => "&gt;".to_string(),
+            _ => c.to_string(),
+        })
+        .collect()
 }
 
 /// 日本語文字かどうか判定
@@ -410,6 +454,17 @@ author: Taro
     }
 
     #[test]
+    fn test_japanese_anchor_id_matches_html() {
+        let doc = Document::parse("# はじめに\n\n## インストール方法");
+        assert!(doc.html.contains(r##"href="#hajimeni""##));
+        assert!(doc.html.contains(r#"id="hajimeni""#));
+        assert!(doc.html.contains(r##"href="#insutoruhouhou""##));
+        assert!(doc.html.contains(r#"id="insutoruhouhou""#));
+        assert!(doc.toc.contains("- [はじめに](#hajimeni)"));
+        assert!(doc.toc.contains("  - [インストール方法](#insutoruhouhou)"));
+    }
+
+    #[test]
     fn test_toc_generation() {
         let doc = Document::parse("# First\n## Second\n### Third");
         assert!(doc.toc.contains("- [First](#first)"));
@@ -423,6 +478,17 @@ author: Taro
         assert_eq!(doc.reading_time, 1);
 
         let text = "あ".repeat(800);
+        let doc = Document::parse(&text);
+        assert_eq!(doc.reading_time, 2);
+    }
+
+    #[test]
+    fn test_english_reading_time_counts_words() {
+        let text = (0..200).map(|_| "word").collect::<Vec<_>>().join(" ");
+        let doc = Document::parse(&text);
+        assert_eq!(doc.reading_time, 1);
+
+        let text = (0..400).map(|_| "word").collect::<Vec<_>>().join(" ");
         let doc = Document::parse(&text);
         assert_eq!(doc.reading_time, 2);
     }
