@@ -179,12 +179,29 @@ fn extract_frontmatter(markdown: &str) -> (HashMap<String, String>, String) {
 fn extract_headings(markdown: &str) -> Vec<Heading> {
     let re = Regex::new(r"^(#{1,6})\s+(.+)$").unwrap();
     let mut headings = Vec::new();
+    let mut used_ids: HashMap<String, usize> = HashMap::new();
+    let mut in_fenced_code = false;
 
     for line in markdown.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_fenced_code = !in_fenced_code;
+            continue;
+        }
+        if in_fenced_code {
+            continue;
+        }
+
         if let Some(caps) = re.captures(line) {
             let level = caps.get(1).map_or(0, |m| m.as_str().len());
-            let text = caps.get(2).map_or("", |m| m.as_str()).trim().to_string();
-            let id = generate_anchor_id(&text);
+            let text = caps
+                .get(2)
+                .map_or("", |m| m.as_str())
+                .trim()
+                .trim_end_matches('#')
+                .trim()
+                .to_string();
+            let id = unique_anchor_id(generate_anchor_id(&text), &mut used_ids);
 
             headings.push(Heading { text, level, id });
         }
@@ -303,6 +320,22 @@ fn generate_anchor_id(text: &str) -> String {
     id.trim_matches('-').to_string()
 }
 
+fn unique_anchor_id(base_id: String, used_ids: &mut HashMap<String, usize>) -> String {
+    let base_id = if base_id.is_empty() {
+        "heading".to_string()
+    } else {
+        base_id
+    };
+    let count = used_ids.entry(base_id.clone()).or_insert(0);
+    *count += 1;
+
+    if *count == 1 {
+        base_id
+    } else {
+        format!("{base_id}-{count}")
+    }
+}
+
 /// 見出しにアンカーIDを追加
 fn add_heading_anchors(content: &str, _headings: &[Heading]) -> String {
     content.to_string()
@@ -341,7 +374,9 @@ fn generate_toc(headings: &[Heading]) -> String {
         let indent = "  ".repeat(heading.level.saturating_sub(1));
         toc.push_str(&format!(
             "{}- [{}](#{})\n",
-            indent, heading.text, heading.id
+            indent,
+            escape_markdown_link_text(&heading.text),
+            heading.id
         ));
     }
 
@@ -358,7 +393,7 @@ fn calculate_reading_time(markdown: &str) -> usize {
     let re = Regex::new(r"[#*`\[\]()!]").unwrap();
     let text = re.replace_all(&text, "");
 
-    let mut char_count = 0;
+    let mut char_count: usize = 0;
     let mut english_text = String::new();
 
     for c in text.chars() {
@@ -377,10 +412,21 @@ fn calculate_reading_time(markdown: &str) -> usize {
         .count();
 
     // 日本語: 400文字/分、英語: 200単語/分
-    let japanese_time = char_count / 400;
-    let english_time = word_count / 200;
+    let japanese_time = char_count.div_ceil(400);
+    let english_time = word_count.div_ceil(200);
 
     (japanese_time + english_time).max(1)
+}
+
+fn escape_markdown_link_text(input: &str) -> String {
+    let mut escaped = String::new();
+    for c in input.chars() {
+        if matches!(c, '[' | ']' | '\\') {
+            escaped.push('\\');
+        }
+        escaped.push(c);
+    }
+    escaped
 }
 
 fn escape_html_attr(input: &str) -> String {
@@ -441,6 +487,52 @@ author: Taro
     }
 
     #[test]
+    fn test_heading_extraction_ignores_fenced_code() {
+        let markdown = r#"# Title
+
+```markdown
+# Not a heading
+```
+
+~~~markdown
+## Also not a heading
+~~~
+
+## Section
+"#;
+        let doc = Document::parse(markdown);
+        assert_eq!(doc.headings.len(), 2);
+        assert_eq!(doc.headings[0].text, "Title");
+        assert_eq!(doc.headings[1].text, "Section");
+        assert!(!doc.toc.contains("Not a heading"));
+    }
+
+    #[test]
+    fn test_duplicate_heading_ids_are_unique() {
+        let doc = Document::parse("# はじめに\n## はじめに\n### はじめに");
+        assert_eq!(doc.headings[0].id, "hajimeni");
+        assert_eq!(doc.headings[1].id, "hajimeni-2");
+        assert_eq!(doc.headings[2].id, "hajimeni-3");
+        assert!(doc.html.contains(r#"id="hajimeni-2""#));
+        assert!(doc.toc.contains("  - [はじめに](#hajimeni-2)"));
+    }
+
+    #[test]
+    fn test_empty_anchor_falls_back_to_heading() {
+        let doc = Document::parse("# 日本語\n## 日本語");
+        assert_eq!(doc.headings[0].id, "heading");
+        assert_eq!(doc.headings[1].id, "heading-2");
+        assert!(doc.html.contains(r#"id="heading""#));
+        assert!(doc.html.contains(r#"id="heading-2""#));
+    }
+
+    #[test]
+    fn test_toc_escapes_markdown_link_text() {
+        let doc = Document::parse("# [概要]\\確認");
+        assert!(doc.toc.contains(r"- [\[概要\]\\確認]"));
+    }
+
+    #[test]
     fn test_japanese_anchor_id() {
         let id = generate_anchor_id("はじめに");
         assert_eq!(id, "hajimeni");
@@ -480,6 +572,10 @@ author: Taro
         let text = "あ".repeat(800);
         let doc = Document::parse(&text);
         assert_eq!(doc.reading_time, 2);
+
+        let text = "あ".repeat(401);
+        let doc = Document::parse(&text);
+        assert_eq!(doc.reading_time, 2);
     }
 
     #[test]
@@ -489,6 +585,10 @@ author: Taro
         assert_eq!(doc.reading_time, 1);
 
         let text = (0..400).map(|_| "word").collect::<Vec<_>>().join(" ");
+        let doc = Document::parse(&text);
+        assert_eq!(doc.reading_time, 2);
+
+        let text = (0..201).map(|_| "word").collect::<Vec<_>>().join(" ");
         let doc = Document::parse(&text);
         assert_eq!(doc.reading_time, 2);
     }
