@@ -1,5 +1,5 @@
-// mdja WASM bindings example (Node.js)
-const { Document } = require('./index.js');
+// mdja WASM bindings example
+import { Document } from './pkg/mdja.js';
 
 console.log('=== mdja WASM デモ ===\n');
 

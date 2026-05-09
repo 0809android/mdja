@@ -1,5 +1,5 @@
 // mdja WASM bindings example (TypeScript)
-import { Document } from './index';
+import { Document } from './pkg/mdja';
 
 console.log('=== mdja WASM TypeScript デモ ===\n');
 

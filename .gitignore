@@ -42,5 +42,9 @@ package-lock.json
 .DS_Store
 
 # Build
+/pkg/
+/js/pkg/
+/js/pkg-nodejs/
+/js/pkg-web/
 *.wasm
 *.wasm.map

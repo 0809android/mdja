@@ -1,9 +1,10 @@
 //! Python bindings for mdja
+#![allow(non_local_definitions)]
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-use crate::Document as RustDocument;
+use crate::{AnchorStyle, Document as RustDocument, ParseOptions as RustParseOptions};
 
 /// Python wrapper for Document
 #[pyclass(name = "Document")]
@@ -30,6 +31,14 @@ impl PyDocument {
     fn parse(markdown: &str) -> PyResult<Self> {
         Ok(PyDocument {
             inner: RustDocument::parse(markdown),
+        })
+    }
+
+    /// Parse Markdown with custom options
+    #[staticmethod]
+    fn parse_with_options(markdown: &str, options: &PyParseOptions) -> PyResult<Self> {
+        Ok(PyDocument {
+            inner: RustDocument::parse_with_options(markdown, &options.inner),
         })
     }
 
@@ -66,10 +75,30 @@ impl PyDocument {
         Ok(dict.into())
     }
 
+    /// Raw frontmatter metadata as JSON
+    #[getter]
+    fn metadata_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner.metadata_raw)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
     /// Table of contents (Markdown format)
     #[getter]
     fn toc(&self) -> PyResult<String> {
         Ok(self.inner.toc.clone())
+    }
+
+    /// Table of contents (HTML format)
+    #[getter]
+    fn toc_html(&self) -> PyResult<String> {
+        Ok(self.inner.toc_html.clone())
+    }
+
+    /// Hierarchical table of contents as JSON
+    #[getter]
+    fn toc_tree_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner.toc_tree)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Reading time in minutes
@@ -106,6 +135,85 @@ impl PyDocument {
     }
 }
 
+/// Python wrapper for ParseOptions
+#[pyclass(name = "ParseOptions")]
+#[derive(Clone)]
+pub struct PyParseOptions {
+    inner: RustParseOptions,
+}
+
+#[pymethods]
+impl PyParseOptions {
+    #[new]
+    fn new() -> Self {
+        Self {
+            inner: RustParseOptions::default(),
+        }
+    }
+
+    #[getter]
+    fn reading_speed_japanese(&self) -> usize {
+        self.inner.reading_speed_japanese
+    }
+
+    #[setter]
+    fn set_reading_speed_japanese(&mut self, value: usize) {
+        self.inner.reading_speed_japanese = value;
+    }
+
+    #[getter]
+    fn reading_speed_english(&self) -> usize {
+        self.inner.reading_speed_english
+    }
+
+    #[setter]
+    fn set_reading_speed_english(&mut self, value: usize) {
+        self.inner.reading_speed_english = value;
+    }
+
+    #[getter]
+    fn toc_min_level(&self) -> usize {
+        self.inner.toc_min_level
+    }
+
+    #[setter]
+    fn set_toc_min_level(&mut self, value: usize) {
+        self.inner.toc_min_level = value;
+    }
+
+    #[getter]
+    fn toc_max_level(&self) -> usize {
+        self.inner.toc_max_level
+    }
+
+    #[setter]
+    fn set_toc_max_level(&mut self, value: usize) {
+        self.inner.toc_max_level = value;
+    }
+
+    #[getter]
+    fn anchor_style(&self) -> &'static str {
+        match self.inner.anchor_style {
+            AnchorStyle::Romaji => "romaji",
+            AnchorStyle::Ascii => "ascii",
+        }
+    }
+
+    #[setter]
+    fn set_anchor_style(&mut self, value: &str) -> PyResult<()> {
+        self.inner.anchor_style = match value {
+            "romaji" => AnchorStyle::Romaji,
+            "ascii" => AnchorStyle::Ascii,
+            _ => {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "anchor_style must be 'romaji' or 'ascii'",
+                ))
+            }
+        };
+        Ok(())
+    }
+}
+
 /// Python wrapper for Heading
 #[pyclass(name = "Heading")]
 #[derive(Clone)]
@@ -137,6 +245,7 @@ impl PyHeading {
 fn mdja(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyDocument>()?;
     m.add_class::<PyHeading>()?;
+    m.add_class::<PyParseOptions>()?;
 
     // Module docstring
     m.add(

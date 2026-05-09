@@ -17,10 +17,11 @@ crate-type = ["cdylib", "rlib"]
 comrak = "0.30"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
+serde_json = "1.0"
 regex = "1.10"
 
 # Python bindings (optional)
-pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
+pyo3 = { version = "0.20", optional = true }
 
 # WASM bindings (optional)
 wasm-bindgen = { version = "0.2", optional = true }
@@ -29,10 +30,13 @@ serde-wasm-bindgen = { version = "0.6", optional = true }
 [dev-dependencies]
 pretty_assertions = "1.4"
 
+[build-dependencies]
+pyo3-build-config = { version = "0.20", optional = true }
+
 [features]
 default = []
-python = ["pyo3"]
-wasm = ["wasm-bindgen", "serde-wasm-bindgen"]
+python = ["dep:pyo3", "dep:pyo3-build-config", "pyo3/extension-module"]
+wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen"]
 
 [[bin]]
 name = "mdja"

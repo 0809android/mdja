@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::Document as RustDocument;
+use crate::{Document as RustDocument, ParseOptions};
 
 /// WASM wrapper for Document
 #[wasm_bindgen]
@@ -22,13 +22,23 @@ impl Document {
     /// import { Document } from 'mdja';
     ///
     /// const doc = Document.parse("# Hello\n\nWorld");
-    /// console.log(doc.html());
+    /// console.log(doc.html);
     /// ```
     #[wasm_bindgen]
     pub fn parse(markdown: &str) -> Document {
         Document {
             inner: RustDocument::parse(markdown),
         }
+    }
+
+    /// Parse Markdown with custom options supplied as a JavaScript object
+    #[wasm_bindgen(js_name = parseWithOptions)]
+    pub fn parse_with_options(markdown: &str, options: JsValue) -> Result<Document, JsValue> {
+        let options = serde_wasm_bindgen::from_value::<ParseOptions>(options)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        Ok(Document {
+            inner: RustDocument::parse_with_options(markdown, &options),
+        })
     }
 
     /// Convert Markdown to HTML (simple conversion)
@@ -58,10 +68,28 @@ impl Document {
         serde_wasm_bindgen::to_value(&self.inner.metadata).unwrap_or(JsValue::NULL)
     }
 
+    /// Get raw frontmatter metadata with YAML types preserved
+    #[wasm_bindgen(getter, js_name = metadataRaw)]
+    pub fn metadata_raw(&self) -> JsValue {
+        serde_wasm_bindgen::to_value(&self.inner.metadata_raw).unwrap_or(JsValue::NULL)
+    }
+
     /// Get table of contents (Markdown format)
     #[wasm_bindgen(getter)]
     pub fn toc(&self) -> String {
         self.inner.toc.clone()
+    }
+
+    /// Get table of contents (HTML format)
+    #[wasm_bindgen(getter, js_name = tocHtml)]
+    pub fn toc_html(&self) -> String {
+        self.inner.toc_html.clone()
+    }
+
+    /// Get hierarchical table of contents
+    #[wasm_bindgen(getter, js_name = tocTree)]
+    pub fn toc_tree(&self) -> JsValue {
+        serde_wasm_bindgen::to_value(&self.inner.toc_tree).unwrap_or(JsValue::NULL)
     }
 
     /// Get reading time in minutes

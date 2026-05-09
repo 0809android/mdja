@@ -11,8 +11,10 @@
 - ✨ **CommonMark + GFM完全対応** - [comrak](https://github.com/kivikakk/comrak)基盤で高速・正確
 - ✨ **日本語見出しアンカー生成** - `# はじめに` → `id="hajimeni"`
 - ✨ **目次（TOC）自動生成** - Markdown形式で目次を出力
+- ✨ **HTML/階層TOC対応** - Markdown TOC、HTML TOC、ツリー構造を出力
 - ✨ **読了時間計算** - 日本語文字数を考慮した精密な計算
 - ✨ **frontmatter解析** - YAMLメタデータの自動抽出
+- ✨ **型付きメタデータ** - 文字列化したメタデータとYAML型を保ったメタデータを両方取得
 - ✨ **GFM機能** - テーブル、タスクリスト、取り消し線、自動リンクなど
 - ✨ **マルチ言語対応** - Rust、Python、JavaScript（WASM）、CLIツール
 - ✨ **シンプルなAPI** - 1行でパース可能
@@ -26,19 +28,19 @@
 
 ```toml
 [dependencies]
-mdja = "0.1.0"
+mdja = "0.1.1"
 ```
 
-### Pythonから使う（予定）
+### Pythonから使う
 
 ```bash
-pip install mdja
+maturin develop --features python
 ```
 
-### JavaScriptから使う（予定）
+### JavaScriptから使う
 
 ```bash
-npm install mdja
+wasm-pack build --features wasm --target bundler --out-dir js/pkg
 ```
 
 ### CLIツールとして使う
@@ -113,6 +115,15 @@ mdja input.md
 
 # 標準入力から読み込み
 cat input.md | mdja
+
+# JSONで構造化結果を出力
+mdja --json input.md
+
+# TOCだけを出力
+mdja --toc --toc-max-level 3 input.md
+
+# frontmatterだけをJSONで出力
+mdja --metadata input.md
 ```
 
 ## API リファレンス
@@ -129,11 +140,14 @@ let doc = Document::parse("# Hello");
 
 ```rust
 pub struct Document {
-    pub html: String,                         // HTML出力
-    pub metadata: HashMap<String, String>,    // frontmatterメタデータ
-    pub toc: String,                          // 目次（Markdown形式）
-    pub headings: Vec<Heading>,               // 見出し一覧
-    pub reading_time: usize,                  // 読了時間（分）
+    pub html: String,                              // HTML出力
+    pub metadata: HashMap<String, String>,         // 文字列化したfrontmatterメタデータ
+    pub metadata_raw: HashMap<String, Value>,      // YAML型を保ったfrontmatterメタデータ
+    pub toc: String,                               // 目次（Markdown形式）
+    pub toc_html: String,                          // 目次（HTML形式）
+    pub toc_tree: Vec<TocItem>,                    // 階層化された目次
+    pub headings: Vec<Heading>,                    // 見出し一覧
+    pub reading_time: usize,                       // 読了時間（分）
 }
 ```
 
@@ -156,6 +170,24 @@ pub struct Heading {
 ```
 
 ## 機能詳細
+
+### 解析オプション
+
+`ParseOptions` で読了速度、TOCの対象レベル、アンカー生成方式を指定できます。
+
+```rust
+use mdja::{AnchorStyle, Document, ParseOptions};
+
+let options = ParseOptions {
+    toc_min_level: 2,
+    toc_max_level: 3,
+    reading_speed_japanese: 500,
+    reading_speed_english: 250,
+    anchor_style: AnchorStyle::Romaji,
+};
+
+let doc = Document::parse_with_options("# はじめに", &options);
+```
 
 ### frontmatter解析
 
@@ -190,8 +222,8 @@ println!("{}", doc.metadata.get("author").unwrap()); // "Taro"
 ↓
 
 ```html
-<h1 id="hajimeni">はじめに</h1>
-<h2 id="insutoruhouhou">インストール方法</h2>
+<h1><a href="#hajimeni" aria-hidden="true" class="anchor" id="hajimeni"></a>はじめに</h1>
+<h2><a href="#insutoruhouhou" aria-hidden="true" class="anchor" id="insutoruhouhou"></a>インストール方法</h2>
 ```
 
 ```rust
@@ -199,9 +231,17 @@ let doc = Document::parse("# はじめに");
 assert_eq!(doc.headings[0].id, "hajimeni");
 ```
 
+拗音や促音にも対応しています。
+
+```rust
+let doc = Document::parse("# キャッシュ\n## ティーカップ");
+assert_eq!(doc.headings[0].id, "kyasshu");
+assert_eq!(doc.headings[1].id, "tikappu");
+```
+
 ### 目次（TOC）生成
 
-見出しから自動的に目次を生成します。
+見出しから自動的にMarkdown形式、HTML形式、ツリー形式の目次を生成します。
 
 ```rust
 let doc = Document::parse("# H1\n## H2\n### H3");
@@ -209,6 +249,8 @@ println!("{}", doc.toc);
 // - [H1](#h1)
 //   - [H2](#h2)
 //     - [H3](#h3)
+
+println!("{}", doc.toc_html);
 ```
 
 ### 読了時間計算
@@ -219,7 +261,8 @@ println!("{}", doc.toc);
 - 英語: 200単語/分
 
 ```rust
-let doc = Document::parse("あ".repeat(800));
+let text = "あ".repeat(800);
+let doc = Document::parse(&text);
 assert_eq!(doc.reading_time, 2);  // 2分
 ```
 
@@ -362,7 +405,7 @@ cargo doc --open
 
 ```toml
 [dependencies]
-mdja = "0.1.0"
+mdja = "0.1.1"
 ```
 
 ### Usage

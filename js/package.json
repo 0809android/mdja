@@ -1,18 +1,30 @@
 {
   "name": "mdja",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "日本語に最適化されたMarkdownパーサー - CommonMark + GFM対応",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "type": "module",
+  "module": "pkg/mdja.js",
+  "types": "pkg/mdja.d.ts",
+  "exports": {
+    ".": {
+      "types": "./pkg/mdja.d.ts",
+      "import": "./pkg/mdja.js"
+    }
+  },
+  "sideEffects": false,
   "files": [
-    "index.js",
-    "index.d.ts",
-    "mdja_bg.wasm"
+    "pkg/mdja.js",
+    "pkg/mdja_bg.js",
+    "pkg/mdja.d.ts",
+    "pkg/mdja_bg.wasm",
+    "pkg/mdja_bg.wasm.d.ts",
+    "pkg/snippets"
   ],
   "scripts": {
-    "build": "wasm-pack build --target bundler --out-dir js ../",
-    "build:nodejs": "wasm-pack build --target nodejs --out-dir js-nodejs ../",
-    "build:web": "wasm-pack build --target web --out-dir js-web ../"
+    "build": "cd .. && wasm-pack build --features wasm --target bundler --out-dir js/pkg",
+    "build:nodejs": "cd .. && wasm-pack build --features wasm --target nodejs --out-dir js/pkg-nodejs",
+    "build:web": "cd .. && wasm-pack build --features wasm --target web --out-dir js/pkg-web",
+    "prepack": "npm run build"
   },
   "repository": {
     "type": "git",
