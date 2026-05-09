@@ -29,6 +29,20 @@ jobs:
       - &install-rust
         name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --locked
+
+      - name: Verify package
+        run: cargo publish --dry-run --locked
 
       - name: Publish release
         uses: release-plz/action@v0.5.128
