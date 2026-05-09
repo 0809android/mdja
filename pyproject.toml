@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "mdja"
-version = "0.1.1"
+version = "0.1.2"
 description = "日本語に最適化されたMarkdownパーサー - CommonMark + GFM対応"
 authors = [{name = "0809android"}]
 license = {text = "MIT OR Apache-2.0"}
