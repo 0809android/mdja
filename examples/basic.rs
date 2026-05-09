@@ -102,7 +102,10 @@ tags: rust, markdown
     let doc = Document::parse(jp_headings);
     println!("見出し一覧:");
     for heading in &doc.headings {
-        println!("  {} (id: {}) - レベル{}", heading.text, heading.id, heading.level);
+        println!(
+            "  {} (id: {}) - レベル{}",
+            heading.text, heading.id, heading.level
+        );
     }
     println!();
 

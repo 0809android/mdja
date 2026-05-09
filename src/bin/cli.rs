@@ -26,11 +26,10 @@ fn main() {
         buffer
     } else {
         // ファイルから読み込み
-        fs::read_to_string(&args[1])
-            .unwrap_or_else(|e| {
-                eprintln!("エラー: ファイルの読み込みに失敗: {}", e);
-                process::exit(1);
-            })
+        fs::read_to_string(&args[1]).unwrap_or_else(|e| {
+            eprintln!("エラー: ファイルの読み込みに失敗: {}", e);
+            process::exit(1);
+        })
     };
 
     // パース
@@ -39,11 +38,10 @@ fn main() {
     // 出力
     if args.len() >= 3 {
         // ファイルに保存
-        fs::write(&args[2], &doc.html)
-            .unwrap_or_else(|e| {
-                eprintln!("エラー: ファイルの書き込みに失敗: {}", e);
-                process::exit(1);
-            });
+        fs::write(&args[2], &doc.html).unwrap_or_else(|e| {
+            eprintln!("エラー: ファイルの書き込みに失敗: {}", e);
+            process::exit(1);
+        });
         println!("✓ {}に保存しました", args[2]);
 
         if !doc.metadata.is_empty() {

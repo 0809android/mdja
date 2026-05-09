@@ -121,7 +121,10 @@ pub struct PyHeading {
 #[pymethods]
 impl PyHeading {
     fn __repr__(&self) -> String {
-        format!("Heading(text='{}', level={}, id='{}')", self.text, self.level, self.id)
+        format!(
+            "Heading(text='{}', level={}, id='{}')",
+            self.text, self.level, self.id
+        )
     }
 
     fn __str__(&self) -> String {
@@ -136,7 +139,9 @@ fn mdja(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyHeading>()?;
 
     // Module docstring
-    m.add("__doc__", "日本語に最適化されたMarkdownパーサー\n\n\
+    m.add(
+        "__doc__",
+        "日本語に最適化されたMarkdownパーサー\n\n\
         Features:\n\
         - CommonMark + GFM support\n\
         - Japanese heading anchor generation\n\
@@ -148,7 +153,8 @@ fn mdja(_py: Python, m: &PyModule) -> PyResult<()> {
             >>> doc = mdja.Document.parse('# Hello\\n\\nWorld')\n\
             >>> print(doc.html)\n\
             >>> print(f'Reading time: {doc.reading_time} min')\n\
-    ")?;
+    ",
+    )?;
 
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
 
